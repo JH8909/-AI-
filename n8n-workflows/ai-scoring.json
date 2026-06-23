@@ -1,0 +1,201 @@
+{
+  "name": "AI评分流水线",
+  "version": 1,
+  "active": false,
+  "settings": {
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "手动触发+Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-scoring"
+      }
+    },
+    {
+      "id": "n2",
+      "name": "调用AI评分API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_API_URL}}/api/score",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "product_id",
+              "value": "={{$json.product_id}}"
+            },
+            {
+              "name": "model",
+              "value": "={{$json.model || 'deepseek-v3'}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n3",
+      "name": "检查成功",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.success}}",
+              "operation": "equals",
+              "value2": "true"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n4",
+      "name": "保存评分",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "operation": "create",
+        "tableId": "product_scores",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldName": "product_id",
+              "fieldValue": "={{$node['n1'].json.product_id}}"
+            },
+            {
+              "fieldName": "market_demand",
+              "fieldValue": "={{$json.data.market_demand}}"
+            },
+            {
+              "fieldName": "profit_margin",
+              "fieldValue": "={{$json.data.profit_margin}}"
+            },
+            {
+              "fieldName": "competition_intensity",
+              "fieldValue": "={{$json.data.competition_intensity}}"
+            },
+            {
+              "fieldName": "compliance_risk",
+              "fieldValue": "={{$json.data.compliance_risk}}"
+            },
+            {
+              "fieldName": "content_fit",
+              "fieldValue": "={{$json.data.content_fit}}"
+            },
+            {
+              "fieldName": "overall_score",
+              "fieldValue": "={{$json.data.overall_score}}"
+            },
+            {
+              "fieldName": "reasoning",
+              "fieldValue": "={{$json.data.overall_reasoning}}"
+            },
+            {
+              "fieldName": "model_used",
+              "fieldValue": "={{$json.model}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n5",
+      "name": "记录错误",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        850,
+        450
+      ],
+      "parameters": {
+        "operation": "create",
+        "tableId": "audit_logs",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldName": "table_name",
+              "fieldValue": "product_scores"
+            },
+            {
+              "fieldName": "action",
+              "fieldValue": "ERROR"
+            },
+            {
+              "fieldName": "changes",
+              "fieldValue": "={{JSON.stringify($json)}}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "n1": {
+      "main": [
+        [
+          {
+            "node": "n2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n2": {
+      "main": [
+        [
+          {
+            "node": "n3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n3": {
+      "true": [
+        [
+          {
+            "node": "n4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "n5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

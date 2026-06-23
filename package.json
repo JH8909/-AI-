@@ -1,0 +1,26 @@
+{
+  "name": "ecommerce-ai-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.13.0",
+  "description": "AI 电商选品中台 - Monorepo",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "node --test apps/admin-panel/src/lib/*.test.js apps/admin-panel/src/app/api/settings/*.test.js",
+    "clean": "turbo run clean",
+    "db:init": "cd packages/supabase-schema && npm run init"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

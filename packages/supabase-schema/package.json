@@ -1,0 +1,9 @@
+{
+  "name": "@ecommerce/supabase-schema",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "init": "echo 'Run: supabase db push'",
+    "reset": "echo 'Run: supabase db reset'"
+  }
+}

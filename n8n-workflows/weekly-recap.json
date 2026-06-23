@@ -1,0 +1,142 @@
+{
+  "name": "7天复盘流水线",
+  "version": 1,
+  "active": false,
+  "settings": {
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "每周一8点",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n2",
+      "name": "查询7天快照",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "data_snapshots",
+        "filters": {
+          "conditions": [
+            {
+              "fieldName": "snapshot_date",
+              "condition": "gte",
+              "fieldValue": "={{$now.minus(7, 'days').toFormat('yyyy-MM-dd')}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n3",
+      "name": "AI复盘分析",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_API_URL}}/api/recap",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "snapshots",
+              "value": "={{JSON.stringify($json)}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n4",
+      "name": "保存复盘报告",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "operation": "create",
+        "tableId": "audit_logs",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldName": "table_name",
+              "fieldValue": "weekly_recap"
+            },
+            {
+              "fieldName": "action",
+              "fieldValue": "AUTO_GENERATE"
+            },
+            {
+              "fieldName": "changes",
+              "fieldValue": "={{JSON.stringify($json)}}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "n1": {
+      "main": [
+        [
+          {
+            "node": "n2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n2": {
+      "main": [
+        [
+          {
+            "node": "n3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n3": {
+      "main": [
+        [
+          {
+            "node": "n4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

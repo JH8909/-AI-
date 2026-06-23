@@ -1,0 +1,226 @@
+{
+  "name": "内容生成流水线",
+  "version": 1,
+  "active": false,
+  "settings": {
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "Webhook触发",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-generation"
+      }
+    },
+    {
+      "id": "n2",
+      "name": "读取AI评分",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "product_scores",
+        "filters": {
+          "conditions": [
+            {
+              "fieldName": "product_id",
+              "condition": "eq",
+              "fieldValue": "={{$json.product_id}}"
+            }
+          ]
+        },
+        "sort": {
+          "sortField": "created_at",
+          "sortOrder": "desc"
+        },
+        "limit": 1
+      }
+    },
+    {
+      "id": "n3",
+      "name": "调用内容生成API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_API_URL}}/api/generate-content",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "product_id",
+              "value": "={{$node['n1'].json.product_id}}"
+            },
+            {
+              "name": "platform",
+              "value": "={{$json.platform || 'xiaohongshu'}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n4",
+      "name": "保存内容草稿",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "operation": "create",
+        "tableId": "content_drafts",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldName": "product_id",
+              "fieldValue": "={{$node['n1'].json.product_id}}"
+            },
+            {
+              "fieldName": "platform",
+              "fieldValue": "={{$node['n1'].json.platform || 'xiaohongshu'}}"
+            },
+            {
+              "fieldName": "title",
+              "fieldValue": "={{$json.data.title}}"
+            },
+            {
+              "fieldName": "body",
+              "fieldValue": "={{$json.data.body}}"
+            },
+            {
+              "fieldName": "hashtags",
+              "fieldValue": "={{JSON.stringify($json.data.hashtags)}}"
+            },
+            {
+              "fieldName": "price_suggestion",
+              "fieldValue": "={{$json.data.price_suggestion}}"
+            },
+            {
+              "fieldName": "image_prompt",
+              "fieldValue": "={{$json.data.image_prompt}}"
+            },
+            {
+              "fieldName": "model_used",
+              "fieldValue": "={{$json.model}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n5",
+      "name": "加入审核队列",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "parameters": {
+        "operation": "create",
+        "tableId": "review_queue",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldName": "content_draft_id",
+              "fieldValue": "={{$json.id}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n6",
+      "name": "飞书通知(选配)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.FEISHU_WEBHOOK_URL}}",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyText": "{\"msg_type\":\"text\",\"content\":{\"text\":\"新内容待审核: {{$json.data.title}}\"}}"
+      }
+    }
+  ],
+  "connections": {
+    "n1": {
+      "main": [
+        [
+          {
+            "node": "n2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n2": {
+      "main": [
+        [
+          {
+            "node": "n3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n3": {
+      "main": [
+        [
+          {
+            "node": "n4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n4": {
+      "main": [
+        [
+          {
+            "node": "n5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n5": {
+      "main": [
+        [
+          {
+            "node": "n6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

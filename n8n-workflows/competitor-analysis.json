@@ -1,0 +1,110 @@
+{
+  "name": "竞品分析流水线",
+  "version": 1,
+  "active": false,
+  "settings": {
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "id": "n1",
+      "name": "Webhook触发",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "competitor-analysis"
+      }
+    },
+    {
+      "id": "n2",
+      "name": "调用竞品分析API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.AI_API_URL}}/api/competitor-analysis",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "product_id",
+              "value": "={{$json.product_id}}"
+            },
+            {
+              "name": "competitor_urls",
+              "value": "={{$json.competitor_urls}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "n3",
+      "name": "保存分析报告",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "operation": "create",
+        "tableId": "competitor_analyses",
+        "fieldsToSend": {
+          "values": [
+            {
+              "fieldName": "product_id",
+              "fieldValue": "={{$node['n1'].json.product_id}}"
+            },
+            {
+              "fieldName": "competitor_products",
+              "fieldValue": "={{JSON.stringify($json.data.competitor_details)}}"
+            },
+            {
+              "fieldName": "overall_report",
+              "fieldValue": "={{$json.data.overall_report}}"
+            },
+            {
+              "fieldName": "model_used",
+              "fieldValue": "={{$json.model}}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "n1": {
+      "main": [
+        [
+          {
+            "node": "n2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n2": {
+      "main": [
+        [
+          {
+            "node": "n3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
