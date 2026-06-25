@@ -4,16 +4,17 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
+  AlertTriangle,
+  BarChart3,
+  Bot,
+  CheckCircle,
+  FileText,
   LayoutDashboard,
   Package,
-  BarChart3,
-  Star,
-  FileText,
-  CheckCircle,
-  AlertTriangle,
   Radar,
   Search,
   Settings,
+  Star,
 } from "lucide-react"
 
 const navItems = [
@@ -21,6 +22,7 @@ const navItems = [
   { href: "/trend-candidates", label: "趋势候选池", icon: Search },
   { href: "/products", label: "产品池", icon: Package },
   { href: "/hot-radar", label: "爆品雷达", icon: Radar },
+  { href: "/automation", label: "自动化任务", icon: Bot },
   { href: "/competitor-analysis", label: "竞品分析", icon: BarChart3 },
   { href: "/ai-scoring", label: "AI 评分", icon: Star },
   { href: "/content-drafts", label: "内容草稿", icon: FileText },
@@ -51,7 +53,7 @@ export function Sidebar() {
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -67,7 +69,7 @@ export function Sidebar() {
           href="/settings"
           className={cn(
             "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground",
-            pathname === "/settings" && "bg-primary/10 text-primary"
+            pathname === "/settings" && "bg-primary/10 text-primary",
           )}
         >
           <Settings className="h-4 w-4" />
