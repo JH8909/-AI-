@@ -20,6 +20,25 @@ function buildPendingPublishRecord(item, snapshotDate) {
   }
 }
 
+function buildPublishedRecord(item) {
+  return {
+    content_draft_id: item.content_draft_id || item.contentDraftId || "",
+    product_id: item.product_id || item.productId || "",
+    productName: item.productName || item.product_name || item.product_id || "",
+    platform: item.platform || "xiaohongshu",
+    title: item.title || "",
+    body: item.body || item.content || "",
+    status: "published",
+    publish_url: item.publish_url || item.publishUrl || "",
+    publish_time: item.publish_time || item.publishTime || item.snapshot_date || todayDate(),
+    snapshot_date: item.snapshot_date || item.publish_time || todayDate(),
+    raw_data: {
+      type: "publish_record",
+      source: item.source || "manual_release",
+    },
+  }
+}
+
 function mergePublishRecord(rows, record) {
   const next = Array.isArray(rows) ? [...rows] : []
   const index = next.findIndex((item) => {
@@ -39,6 +58,7 @@ function isPublishRecord(row) {
 
 module.exports = {
   buildPendingPublishRecord,
+  buildPublishedRecord,
   isPublishRecord,
   mergePublishRecord,
 }

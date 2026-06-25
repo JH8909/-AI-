@@ -17,10 +17,37 @@ export default function ReleaseDataModal({ open, onClose, productId, productName
   const handleSave = async () => {
     setSaving(true); setError("")
     try {
+      const publishRes = await fetch("/api/publish-records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_id: productId,
+          productName,
+          platform,
+          publish_url: url,
+          publish_time: date,
+          title: productName,
+        })
+      })
+      const publishData = await publishRes.json()
+      if (!publishData.success) {
+        setError(publishData.error || "发布记录保存失败")
+        setSaving(false)
+        return
+      }
+
       const r = await fetch("/api/data-snapshots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, snapshot_date: date, views: parseInt(views) || 0, likes: 0, shares: 0, sales_estimate: 0, type: "release" })
+        body: JSON.stringify({
+          product_id: productId,
+          snapshot_date: date,
+          views: parseInt(views) || 0,
+          likes: 0,
+          shares: 0,
+          sales_estimate: 0,
+          raw_data: { type: "release", platform, publish_url: url },
+        })
       })
       const d = await r.json()
       if (d.success) { onSuccess(); onClose() }
