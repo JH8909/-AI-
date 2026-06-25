@@ -13,6 +13,8 @@ interface Settings {
   supabaseUrl: string
   supabaseKey: string
   serviceRoleKey: string
+  wecomWebhookUrl: string
+  feishuWebhookUrl: string
 }
 
 const _settings: Settings = {
@@ -22,6 +24,8 @@ const _settings: Settings = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  wecomWebhookUrl: process.env.WECOM_WEBHOOK_URL || "",
+  feishuWebhookUrl: process.env.FEISHU_WEBHOOK_URL || "",
 }
 
 let _initialized = false

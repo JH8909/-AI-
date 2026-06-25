@@ -11,12 +11,16 @@ import {
   FileText,
   CheckCircle,
   AlertTriangle,
+  Radar,
+  Search,
   Settings,
 } from "lucide-react"
 
 const navItems = [
   { href: "/", label: "仪表盘", icon: LayoutDashboard },
+  { href: "/trend-candidates", label: "趋势候选池", icon: Search },
   { href: "/products", label: "产品池", icon: Package },
+  { href: "/hot-radar", label: "爆品雷达", icon: Radar },
   { href: "/competitor-analysis", label: "竞品分析", icon: BarChart3 },
   { href: "/ai-scoring", label: "AI 评分", icon: Star },
   { href: "/content-drafts", label: "内容草稿", icon: FileText },

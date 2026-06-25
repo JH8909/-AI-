@@ -11,10 +11,10 @@ export interface MockProduct {
 }
 
 export const mockProducts: MockProduct[] = [
-  { id: "1", name: "极简风桌面手机支架", category: "home", price: 29.90, cost: 12.00, status: "active", risk_level: "safe", source: "csv_import", source_url: null, images: [], tags: [], created_at: "2026-06-20T10:00:00Z" },
-  { id: "2", name: "无线蓝牙降噪耳机Pro", category: "electronics", price: 199.00, cost: 85.00, status: "active", risk_level: "safe", source: "link_parse", source_url: null, images: [], tags: [], created_at: "2026-06-21T14:00:00Z" },
+  { id: "1", name: "极简风桌面手机支架", category: "home", price: 29.90, cost: 12.00, status: "tracking", risk_level: "safe", source: "csv_import", source_url: null, images: [], tags: [], created_at: "2026-06-20T10:00:00Z" },
+  { id: "2", name: "无线蓝牙降噪耳机Pro", category: "electronics", price: 199.00, cost: 85.00, status: "testing_candidate", risk_level: "safe", source: "link_parse", source_url: null, images: [], tags: [], created_at: "2026-06-21T14:00:00Z" },
   { id: "3", name: "ins风陶瓷咖啡杯套装", category: "home", price: 49.90, cost: 18.00, status: "draft", risk_level: "safe", source: "manual", source_url: null, images: [], tags: [], created_at: "2026-06-22T09:00:00Z" },
-  { id: "4", name: "便携折叠露营椅", category: "sports", price: 89.00, cost: 35.00, status: "active", risk_level: "safe", source: "csv_import", source_url: null, images: [], tags: [], created_at: "2026-06-19T16:00:00Z" },
+  { id: "4", name: "便携折叠露营椅", category: "sports", price: 89.00, cost: 35.00, status: "published", risk_level: "safe", source: "csv_import", source_url: null, images: [], tags: [], created_at: "2026-06-19T16:00:00Z" },
   { id: "5", name: "LED化妆镜带灯", category: "beauty", price: 59.90, cost: 22.00, status: "draft", risk_level: "warning", source: "link_parse", source_url: null, images: [], tags: [], created_at: "2026-06-22T11:00:00Z" },
   { id: "6", name: "某仿牌运动鞋", category: "fashion", price: 299.00, cost: 60.00, status: "draft", risk_level: "blocked", source: "csv_import", source_url: null, images: [], tags: [], created_at: "2026-06-23T08:00:00Z" },
 ]

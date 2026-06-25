@@ -1,0 +1,29 @@
+{
+  "name": "1688 Hot Radar - Six Hour Crawl",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 6 }] } },
+      "id": "schedule-six-hour",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ADMIN_PANEL_BASE_URL}}/api/hot-radar/runs",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "jsonBody": "{}"
+      },
+      "id": "enqueue-crawl-jobs",
+      "name": "Enqueue Crawl Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 300]
+    }
+  ],
+  "connections": { "Every 6 Hours": { "main": [[{ "node": "Enqueue Crawl Jobs", "type": "main", "index": 0 }]] } }
+}

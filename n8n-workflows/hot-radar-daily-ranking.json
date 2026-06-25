@@ -1,0 +1,47 @@
+{
+  "name": "1688 Hot Radar - Daily Ranking",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "days", "daysInterval": 1 }] } },
+      "id": "daily-schedule",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ADMIN_PANEL_BASE_URL}}/api/hot-radar/score",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "jsonBody": "{}"
+      },
+      "id": "score-top-products",
+      "name": "Score Top Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ADMIN_PANEL_BASE_URL}}/api/hot-radar/notifications/send",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "jsonBody": "{}"
+      },
+      "id": "send-ranking",
+      "name": "Send Ranking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [780, 300]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": { "main": [[{ "node": "Score Top Products", "type": "main", "index": 0 }]] },
+    "Score Top Products": { "main": [[{ "node": "Send Ranking", "type": "main", "index": 0 }]] }
+  }
+}

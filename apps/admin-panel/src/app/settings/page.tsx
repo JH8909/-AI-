@@ -14,6 +14,10 @@ export default function SettingsPage() {
   const [supabaseKey, setSupabaseKey] = useState("")
   const [serviceRoleKey, setServiceRoleKey] = useState("")
   const [hasServiceRoleKey, setHasServiceRoleKey] = useState(false)
+  const [wecomWebhookUrl, setWecomWebhookUrl] = useState("")
+  const [feishuWebhookUrl, setFeishuWebhookUrl] = useState("")
+  const [hasWeComWebhookUrl, setHasWeComWebhookUrl] = useState(false)
+  const [hasFeishuWebhookUrl, setHasFeishuWebhookUrl] = useState(false)
   const [hasSavedDeepSeekKey, setHasSavedDeepSeekKey] = useState(false)
   const [saving, setSaving] = useState(false)
   const [dbSaving, setDbSaving] = useState(false)
@@ -33,6 +37,8 @@ export default function SettingsPage() {
         setSupabaseUrl(d.data.supabaseUrl || "")
         setSupabaseKey(d.data.supabaseKey || "")
         setHasServiceRoleKey(Boolean(d.data.hasSupabaseServiceRoleKey))
+        setHasWeComWebhookUrl(Boolean(d.data.hasWeComWebhookUrl))
+        setHasFeishuWebhookUrl(Boolean(d.data.hasFeishuWebhookUrl))
       }
       setLoading(false)
     }).catch(() => setLoading(false))
@@ -67,6 +73,8 @@ export default function SettingsPage() {
         supabaseKey,
       }
       if (serviceRoleKey.trim()) payload.serviceRoleKey = serviceRoleKey.trim()
+      if (wecomWebhookUrl.trim()) payload.wecomWebhookUrl = wecomWebhookUrl.trim()
+      if (feishuWebhookUrl.trim()) payload.feishuWebhookUrl = feishuWebhookUrl.trim()
 
       const r = await fetch("/api/settings", {
         method: "POST",
@@ -76,7 +84,11 @@ export default function SettingsPage() {
       const d = await r.json()
       if (d.success) {
         setHasServiceRoleKey(Boolean(d.data.hasSupabaseServiceRoleKey))
+        setHasWeComWebhookUrl(Boolean(d.data.hasWeComWebhookUrl))
+        setHasFeishuWebhookUrl(Boolean(d.data.hasFeishuWebhookUrl))
         setServiceRoleKey("")
+        setWecomWebhookUrl("")
+        setFeishuWebhookUrl("")
       }
       setDbMessage({ type: d.success ? "success" : "error", text: d.success ? "数据库配置已保存，立即生效" : (d.error || "保存失败") })
     } catch (err: any) {
@@ -173,6 +185,26 @@ export default function SettingsPage() {
               onChange={e => setServiceRoleKey(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">仅保存到本地服务端配置，用于后端写入 Supabase，不会回显到页面。</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">企业微信 Webhook</label>
+              <Input
+                type="password"
+                placeholder={hasWeComWebhookUrl ? "已保存；如需更换请重新粘贴" : "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."}
+                value={wecomWebhookUrl}
+                onChange={e => setWecomWebhookUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">飞书 Webhook</label>
+              <Input
+                type="password"
+                placeholder={hasFeishuWebhookUrl ? "已保存；如需更换请重新粘贴" : "https://open.feishu.cn/open-apis/bot/v2/hook/..."}
+                value={feishuWebhookUrl}
+                onChange={e => setFeishuWebhookUrl(e.target.value)}
+              />
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <Button onClick={handleDatabaseSave} disabled={dbSaving}>

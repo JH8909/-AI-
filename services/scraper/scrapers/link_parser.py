@@ -16,6 +16,24 @@ SUPPORTED_DOMAINS = {
 }
 
 
+def _clean_title(value: str) -> str:
+    title = (value or "").strip()
+    for marker in ("_阿里巴巴", "- 阿里巴巴", " - 1688.com", "_1688.com"):
+        if marker in title:
+            title = title.split(marker, 1)[0].strip()
+    generic_markers = (
+        "阿里1688首页",
+        "1688首页",
+        "阿里巴巴首页",
+        "1688.com",
+        "全球领先的采购批发平台",
+        "批发网",
+    )
+    if not title or any(marker in title for marker in generic_markers):
+        return ""
+    return title[:120]
+
+
 async def parse_link(url: str) -> dict[str, Any] | None:
     """
     解析单个商品链接
@@ -101,18 +119,27 @@ async def _extract_product(page, url: str, platform: str) -> dict[str, Any]:
         try:
             if sel.startswith("meta"):
                 content = await page.get_attribute(sel, "content")
-                if content:
-                    product["name"] = content.strip()
+                title = _clean_title(content or "")
+                if title:
+                    product["name"] = title
                     break
             else:
                 el = await page.query_selector(sel)
                 if el:
                     text = await el.inner_text()
-                    if text and len(text.strip()) > 2:
-                        product["name"] = text.strip()
+                    title = _clean_title(text)
+                    if title and len(title) > 2:
+                        product["name"] = title
                         break
         except Exception:
             continue
+
+    if not product["name"]:
+        try:
+            page_title = (await page.title()).strip()
+            product["name"] = _clean_title(page_title)
+        except Exception:
+            pass
 
     # Price
     price_selectors = [

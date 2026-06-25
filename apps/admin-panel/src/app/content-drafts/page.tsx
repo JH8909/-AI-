@@ -8,8 +8,8 @@ import { FileText, Wand2, Loader2 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 
 const platformLabels: Record<string, string> = { xiaohongshu: "小红书", xianyu: "闲鱼" }
-const statusLabels: Record<string, string> = { pending: "待审核", approved: "已通过", rejected: "已驳回", revised: "已修改" }
-const statusVariants: Record<string, "warning" | "success" | "destructive" | "secondary"> = { pending: "warning", approved: "success", rejected: "destructive", revised: "secondary" }
+const statusLabels: Record<string, string> = { pending: "待审核", approved: "已通过", rejected: "已驳回", revised: "已修改", scheduled: "已排期" }
+const statusVariants: Record<string, "warning" | "success" | "destructive" | "secondary"> = { pending: "warning", approved: "success", rejected: "destructive", revised: "secondary", scheduled: "secondary" }
 
 export default function ContentDraftsPage() {
   const [drafts, setDrafts] = useState<any[]>([])
@@ -51,8 +51,30 @@ export default function ContentDraftsPage() {
       if (!result.success) {
         setMessage({ type: "error", text: result.error || "内容生成失败" })
       } else {
+        const asset = result.data || {}
+        const platformContent = platform === "xianyu" ? asset.xianyu : asset.xiaohongshu
+        const createRes = await fetch("/api/content-drafts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product_id: product.id,
+            productName: product.name,
+            platform,
+            title: platformContent?.title || product.name,
+            body: platformContent?.body || "",
+            hashtags: platformContent?.hashtags || [],
+            price_suggestion: platformContent?.price_suggestion ?? null,
+            image_prompt: asset.image_prompt || null,
+          }),
+        })
+        const created = await createRes.json()
+        if (!created.success) {
+          setMessage({ type: "error", text: created.error || "内容保存失败" })
+          setGenerating(false)
+          return
+        }
         setMessage({ type: "success", text: "内容已生成并进入审核队列" })
-        setDrafts(prev => [result.data, ...prev])
+        setDrafts(prev => [created.data, ...prev])
       }
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "内容生成失败" })
@@ -108,10 +130,40 @@ export default function ContentDraftsPage() {
                   <div className="flex flex-wrap gap-1 mb-3">{draft.hashtags.map((tag: string, i: number) => <span key={i} className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{tag}</span>)}</div>
                 )}
                 {draft.priceSuggestion && <p className="text-sm text-muted-foreground mb-3">建议价格：<span className="font-bold text-foreground">¥{draft.priceSuggestion.toFixed(2)}</span></p>}
+              {(() => {
+                const ip = draft.image_prompt
+                if (!ip) return null
+                const promptText = typeof ip === "string" ? ip : (ip.cn || ip.en || JSON.stringify(ip))
+                const promptCn = typeof ip === "object" ? ip.cn : ""
+                const promptEn = typeof ip === "object" ? ip.en : ""
+                return <div className="rounded-md bg-muted/30 p-3 mb-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">图片 Prompt</p>
+                  {promptCn && <p className="text-sm text-muted-foreground mb-1">{promptCn}</p>}
+                  {promptEn && <p className="text-sm text-muted-foreground">{promptEn}</p>}
+                  <button onClick={() => { navigator.clipboard.writeText(promptText); alert("已复制") }} className="text-xs text-blue-600 mt-1 underline">复制</button>
+                </div>
+              })()}
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline">查看详情</Button>
                   {draft.status === "pending" && <Button size="sm">提交审核</Button>}
-                  {draft.status === "approved" && <Button size="sm" variant="outline" className="text-green-600">已通过 ✓</Button>}
+                  {draft.status === "approved" && <span className="inline-flex gap-2">
+                      <Button size="sm" variant="outline" className="text-green-600" disabled>已通过</Button>
+                      <Button size="sm" variant="default" onClick={() => {
+                        const dt = prompt("输入排期时间 (格式: YYYY-MM-DD HH:mm):")
+                        if (dt && dt.length >= 10) {
+                          fetch("/api/content-drafts", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: draft.id, status: "scheduled", scheduled_at: dt })
+                          }).then(r => r.json()).then(d => {
+                            if (d.success) { alert("已排期: " + dt); window.location.reload() }
+                            else alert("失败: " + (d.error || "?"))
+                          }).catch(() => alert("请求失败"))
+                        }
+                      }}>
+                        排期发布
+                      </Button>
+                    </span>}
                 </div>
               </CardContent>
             </Card>

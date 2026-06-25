@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Star, Loader2, TrendingUp, DollarSign, Shield, Users } from "lucide-react"
+import { Star, Loader2, TrendingUp, DollarSign, Shield, Users, CheckCircle2 } from "lucide-react"
+import { useToast } from "@/components/toast-provider"
 
 const dimensionLabels: Record<string, string> = {
   market_demand: "市场需求度", profit_margin: "利润空间",
@@ -19,6 +20,7 @@ export default function AIScoringPage() {
   const [scores, setScores] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [scoring, setScoring] = useState(false)
+  const { toast } = useToast()
   const [selected, setSelected] = useState("")
   const [products, setProducts] = useState<any[]>([])
 
@@ -79,7 +81,27 @@ export default function AIScoringPage() {
         <Card key={item.id}>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div><CardTitle className="text-lg">{item.productName}</CardTitle><CardDescription>{item.model_used || "mock"} · {item.created_at}</CardDescription></div>
+              <div><CardTitle className="text-lg">{item.productName}</CardTitle><CardDescription>{item.model_used || "mock"} · {item.created_at}</CardDescription>
+                      {(item.overall_score || 0) >= 7 && !item._inPool && (
+                        <Button size="sm" variant="outline" className="text-green-600 border-green-300" onClick={async () => {
+                          try {
+                            const r = await fetch("/api/products/" + item.product_id, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ status: "testing_candidate", _action: "enter_test_pool", _productName: item.productName })
+                            })
+                            const d = await r.json()
+                            if (d.success) {
+                              toast("success", "已加入测试池", "内容草稿已自动创建")
+                              setScores(prev => prev.map(s => s.id === item.id ? { ...s, _inPool: true } : s))
+                            } else {
+                              toast("error", "操作失败", d.error)
+                            }
+                          } catch { toast("error", "网络错误") }
+                        }}>
+                          <CheckCircle2 className="h-4 w-4 mr-1" />加入测试池
+                        </Button>
+                      )}</div>
               <div className="text-right"><p className="text-3xl font-bold text-primary">{item.overall_score}</p><p className="text-xs text-muted-foreground">综合推荐指数</p></div>
             </div>
           </CardHeader>

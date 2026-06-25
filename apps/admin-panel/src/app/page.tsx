@@ -45,15 +45,28 @@ export default function DashboardPage() {
   }, [])
   const getScore = (p: any) => p.score || scoreMap[p.id] || null
   const recentProducts = products.length > 0 ? products.slice(0, 5) : [
-    { name: "极简风桌面手机支架", category: "home", score: 8.5, status: "active" },
-    { name: "无线蓝牙降噪耳机", category: "electronics", score: 7.8, status: "pending" },
+    { name: "极简风桌面手机支架", category: "home", score: 8.5, status: "tracking" },
+    { name: "无线蓝牙降噪耳机", category: "electronics", score: 7.8, status: "review_pending" },
     { name: "ins风陶瓷咖啡杯", category: "home", score: 6.2, status: "draft" },
-    { name: "便携折叠露营椅", category: "sports", score: 8.9, status: "active" },
-    { name: "LED化妆镜带灯", category: "beauty", score: 7.2, status: "pending" },
+    { name: "便携折叠露营椅", category: "sports", score: 8.9, status: "published" },
+    { name: "LED化妆镜带灯", category: "beauty", score: 7.2, status: "review_pending" },
   ]
 
   const catLabels: Record<string, string> = { fashion: "服饰", electronics: "电子", home: "家居", beauty: "美妆", food: "食品", sports: "运动", toys: "玩具", books: "图书", digital: "数码", other: "其他" }
-  const statusLabels: Record<string, string> = { draft: "草稿", active: "已上架", archived: "已归档", pending: "审核中" }
+  const statusLabels: Record<string, string> = {
+    draft: "草稿",
+    testing_candidate: "测试候选",
+    content_ready: "内容就绪",
+    review_pending: "审核中",
+    published: "已发布",
+    tracking: "追踪中",
+    scale: "放大",
+    optimize: "优化",
+    rejected: "淘汰",
+    active: "已上架",
+    archived: "已归档",
+    pending: "审核中",
+  }
 
   return (
     <div className="space-y-6">
@@ -86,8 +99,8 @@ export default function DashboardPage() {
                       <td className="py-3">{catLabels[p.category] || p.category}</td>
                       <td className="py-3"><span className="font-mono font-bold text-green-600">{getScore(p) || "-"}</span></td>
                       <td className="py-3"><span className={"inline-flex items-center rounded-full px-2 py-1 text-xs font-medium " + (
-                        (p.status === "active" || p.status === "已上架") ? "bg-green-100 text-green-700" :
-                        (p.status === "pending" || p.status === "审核中") ? "bg-yellow-100 text-yellow-700" :
+                        ["published", "tracking", "scale", "active", "已上架"].includes(p.status) ? "bg-green-100 text-green-700" :
+                        ["testing_candidate", "content_ready", "review_pending", "optimize", "pending", "审核中"].includes(p.status) ? "bg-yellow-100 text-yellow-700" :
                         "bg-gray-100 text-gray-700")}>{statusLabels[p.status] || p.status}</span></td>
                     </tr>
                   ))}

@@ -14,7 +14,10 @@ export type Platform = 'xiaohongshu' | 'xianyu'
 
 export type ContentType = 'product_post' | 'review' | 'tutorial'
 
-export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'revised'
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'revised' | 'scheduled'
+export type ProductStatus =
+  | 'draft' | 'testing_candidate' | 'content_ready' | 'review_pending'
+  | 'published' | 'tracking' | 'scale' | 'optimize' | 'rejected'
 
 export type RiskLevel = 'safe' | 'warning' | 'blocked'
 
@@ -31,7 +34,7 @@ export interface Product {
   images: string[]
   specs: Record<string, string>
   tags: string[]
-  status: 'draft' | 'active' | 'archived'
+  status: ProductStatus
   risk_level: RiskLevel
   created_at: string
   updated_at: string
