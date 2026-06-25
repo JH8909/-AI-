@@ -35,6 +35,7 @@ sudo bash scripts/tencent-cloud-quick-deploy-ubuntu.sh
 - 构建 Next.js App
 - 用 pm2 后台运行 App
 - 用 nginx 把 80 端口转发到 App
+- 配置每 6 小时一次的自动选品流水线
 
 完成后访问：
 
@@ -66,6 +67,33 @@ Database URL: postgresql://ecommerce_ai:密码@127.0.0.1:5432/ecommerce_ai
 ```
 
 这个连接串已经写入 `.env.local`，一般不需要再到页面手动填写。
+
+## 自动化流水线
+
+部署脚本会写入 `AUTOMATION_TOKEN`，并创建 cron：
+
+```bash
+/etc/cron.d/ecommerce-ai-automation
+```
+
+默认每 6 小时执行一次：
+
+```bash
+curl -H "x-automation-token: TOKEN" http://127.0.0.1:3000/api/automation/run
+```
+
+手动触发：
+
+```bash
+TOKEN=$(grep AUTOMATION_TOKEN /opt/ecommerce-ai/apps/admin-panel/.env.local | cut -d= -f2)
+curl -H "x-automation-token: $TOKEN" http://127.0.0.1:3000/api/automation/run
+```
+
+日志：
+
+```bash
+tail -f /var/log/ecommerce-ai-automation.log
+```
 
 ## 常用命令
 

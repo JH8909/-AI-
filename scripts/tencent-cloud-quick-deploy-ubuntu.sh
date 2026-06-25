@@ -16,6 +16,7 @@ APP_PORT="${APP_PORT:-3000}"
 DB_NAME="${DB_NAME:-ecommerce_ai}"
 DB_USER="${DB_USER:-ecommerce_ai}"
 DB_PASSWORD="${DB_PASSWORD:-$(openssl rand -base64 24 | tr -d '=+/ ' | cut -c1-20)}"
+AUTOMATION_TOKEN="${AUTOMATION_TOKEN:-$(openssl rand -base64 24 | tr -d '=+/ ' | cut -c1-24)}"
 DATA_DIR="${DATA_DIR:-/opt/ecommerce-ai/data}"
 NODE_MAJOR="${NODE_MAJOR:-20}"
 
@@ -33,7 +34,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo "==> Installing system packages"
 apt-get update
-apt-get install -y curl ca-certificates gnupg nginx postgresql postgresql-contrib openssl
+apt-get install -y curl ca-certificates gnupg nginx postgresql postgresql-contrib openssl cron
 
 if [ ! -f /swapfile ]; then
   echo "==> Creating 2GB swapfile for builds"
@@ -86,6 +87,7 @@ DATA_DIR=${DATA_DIR}
 NEXT_PUBLIC_APP_URL=http://localhost:${APP_PORT}
 DB_CONNECT_TIMEOUT_MS=3000
 DB_POOL_MAX=5
+AUTOMATION_TOKEN=${AUTOMATION_TOKEN}
 ENV
 chmod 600 "$APP_DIR/apps/admin-panel/.env.local"
 
@@ -128,17 +130,29 @@ nginx -t
 systemctl enable --now nginx
 systemctl reload nginx
 
+echo "==> Configuring automation cron"
+cat > /etc/cron.d/ecommerce-ai-automation <<CRON
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 */6 * * * root curl -fsS -H "x-automation-token: ${AUTOMATION_TOKEN}" http://127.0.0.1:${APP_PORT}/api/automation/run >> /var/log/ecommerce-ai-automation.log 2>&1
+CRON
+chmod 644 /etc/cron.d/ecommerce-ai-automation
+systemctl enable --now cron
+
 cat > "$APP_DIR/tencent-cloud-deploy-info.txt" <<INFO
 App URL: http://YOUR_SERVER_PUBLIC_IP
 Local app port: ${APP_PORT}
 Database URL: ${DATABASE_URL}
 Data dir: ${DATA_DIR}
+Automation token: ${AUTOMATION_TOKEN}
+Automation cron: every 6 hours, logs at /var/log/ecommerce-ai-automation.log
 
 Useful commands:
 pm2 status
 pm2 logs ecommerce-ai-admin
 systemctl status nginx
 systemctl status postgresql
+curl -H "x-automation-token: ${AUTOMATION_TOKEN}" http://127.0.0.1:${APP_PORT}/api/automation/run
 INFO
 chmod 600 "$APP_DIR/tencent-cloud-deploy-info.txt"
 

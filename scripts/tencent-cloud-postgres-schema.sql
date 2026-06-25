@@ -221,6 +221,31 @@ CREATE INDEX IF NOT EXISTS idx_crawl_jobs_claim ON crawl_jobs(status, cycle_at, 
 CREATE INDEX IF NOT EXISTS idx_observations_product_time ON product_observations(product_id, observed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_hot_scores_date_rank ON hot_product_scores(score_date DESC, rank);
 
+CREATE TABLE IF NOT EXISTS trend_candidates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  original_title TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  platform TEXT NOT NULL DEFAULT 'manual',
+  source_url TEXT,
+  heat NUMERIC(8,2) NOT NULL DEFAULT 0,
+  growth NUMERIC(8,2) NOT NULL DEFAULT 0,
+  price_band TEXT NOT NULL DEFAULT '',
+  target_audience TEXT NOT NULL DEFAULT '',
+  content_scene TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT 'other',
+  keywords TEXT[] DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'new',
+  risk_level TEXT NOT NULL DEFAULT 'safe',
+  supply JSONB,
+  score JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_trend_candidates_status ON trend_candidates(status);
+CREATE INDEX IF NOT EXISTS idx_trend_candidates_score ON trend_candidates(((score->>'total')::numeric) DESC) WHERE score IS NOT NULL;
+
 CREATE OR REPLACE FUNCTION claim_crawl_job(worker_name TEXT)
 RETURNS SETOF crawl_jobs
 LANGUAGE plpgsql

@@ -1,5 +1,6 @@
 import { promises as fs } from "fs"
-import path from "path"
+import { dataPath } from "@/lib/data-dir"
+import { queryOne, queryRows } from "@/lib/postgres"
 
 export type CandidateStatus = "new" | "observing" | "supply_checking" | "scored" | "promoted" | "rejected"
 export type SupplyStatus = "matched" | "partial_match" | "not_found" | "blocked" | "needs_manual_review"
@@ -51,7 +52,7 @@ export interface TrendCandidate {
   updatedAt: string
 }
 
-const CACHE_FILE = path.join(process.cwd(), ".trend-candidates-cache.json")
+const CACHE_FILE = ".trend-candidates-cache.json"
 
 const seedCandidates: TrendCandidate[] = [
   normalizeCandidateInput({
@@ -59,7 +60,7 @@ const seedCandidates: TrendCandidate[] = [
     title: "桌面理线收纳盒",
     description: "小红书办公桌改造内容高频出现，适合收纳和桌搭场景。",
     platform: "xiaohongshu",
-    sourceUrl: "https://www.xiaohongshu.com/search_result?keyword=桌面收纳",
+    sourceUrl: "https://www.xiaohongshu.com/search_result?keyword=%E6%A1%8C%E9%9D%A2%E6%94%B6%E7%BA%B3",
     heat: 86,
     growth: 34,
     priceBand: "29-59",
@@ -74,7 +75,7 @@ const seedCandidates: TrendCandidate[] = [
       title: "便携露营氛围灯",
       description: "短视频露营清单里反复出现，适合小红书场景化种草。",
       platform: "douyin",
-      sourceUrl: "https://www.douyin.com/search/露营灯",
+      sourceUrl: "https://www.douyin.com/search/%E9%9C%B2%E8%90%A5%E7%81%AF",
       heat: 78,
       growth: 28,
       priceBand: "39-99",
@@ -119,35 +120,35 @@ function clamp(value: number, min = 0, max = 100) {
 
 function normalizeKeywords(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean)
-  if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean)
+  if (typeof value === "string") return value.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean)
   return []
 }
 
 export function normalizeCandidateInput(input: any): TrendCandidate {
-  const createdAt = input.createdAt || now()
-  const name = String(input.name || input.title || input.originalTitle || "").trim()
+  const createdAt = input.createdAt || input.created_at || now()
+  const name = String(input.name || input.title || input.originalTitle || input.original_title || "").trim()
   if (!name) throw new Error("候选商品名称不能为空")
 
   return {
     id: String(input.id || `trend-${Date.now()}-${Math.random().toString(16).slice(2)}`),
     name,
-    originalTitle: String(input.originalTitle || input.title || name),
+    originalTitle: String(input.originalTitle || input.original_title || input.title || name),
     description: String(input.description || "待补充趋势证据"),
     platform: String(input.platform || "manual"),
-    sourceUrl: input.sourceUrl ? String(input.sourceUrl) : null,
+    sourceUrl: input.sourceUrl || input.source_url ? String(input.sourceUrl || input.source_url) : null,
     heat: clamp(toNumber(input.heat, 50)),
     growth: clamp(toNumber(input.growth, 10)),
-    priceBand: String(input.priceBand || "待验证"),
-    targetAudience: String(input.targetAudience || "待验证"),
-    contentScene: String(input.contentScene || "待验证"),
+    priceBand: String(input.priceBand || input.price_band || "待验证"),
+    targetAudience: String(input.targetAudience || input.target_audience || "待验证"),
+    contentScene: String(input.contentScene || input.content_scene || "待验证"),
     category: String(input.category || "other"),
     keywords: normalizeKeywords(input.keywords),
     status: (input.status as CandidateStatus) || "new",
-    riskLevel: (input.riskLevel as RiskLevel) || "safe",
+    riskLevel: (input.riskLevel || input.risk_level || "safe") as RiskLevel,
     supply: input.supply || null,
     score: input.score || null,
     createdAt,
-    updatedAt: input.updatedAt || createdAt,
+    updatedAt: input.updatedAt || input.updated_at || createdAt,
   }
 }
 
@@ -165,7 +166,7 @@ export function verifySupplyFromInput(input: any): SupplyMatch {
     title: title || null,
     price: hasPrice ? price : null,
     moq: Number.isFinite(Number(input.moq)) ? Number(input.moq) : null,
-    supplierName: input.supplierName ? String(input.supplierName) : null,
+    supplierName: input.supplierName || input.supplier_name ? String(input.supplierName || input.supplier_name) : null,
     reason: missing.length ? `缺少${missing.join("、")}，不能视为供货验证成功` : "1688 供货信息已具备商品名和价格",
   }
 }
@@ -208,9 +209,81 @@ export function buildPromotionProduct(candidate: any) {
   }
 }
 
+function fromDb(row: any): TrendCandidate {
+  return normalizeCandidateInput({
+    ...row,
+    originalTitle: row.original_title,
+    sourceUrl: row.source_url,
+    priceBand: row.price_band,
+    targetAudience: row.target_audience,
+    contentScene: row.content_scene,
+    riskLevel: row.risk_level,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  })
+}
+
+async function dbList(): Promise<TrendCandidate[] | null> {
+  try {
+    const rows = await queryRows("SELECT * FROM trend_candidates ORDER BY created_at DESC")
+    return rows.map(fromDb)
+  } catch {
+    return null
+  }
+}
+
+async function dbUpsert(candidate: TrendCandidate) {
+  return queryOne(
+    `INSERT INTO trend_candidates (
+      id, name, original_title, description, platform, source_url, heat, growth, price_band,
+      target_audience, content_scene, category, keywords, status, risk_level, supply, score, created_at, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name,
+      original_title = EXCLUDED.original_title,
+      description = EXCLUDED.description,
+      platform = EXCLUDED.platform,
+      source_url = EXCLUDED.source_url,
+      heat = EXCLUDED.heat,
+      growth = EXCLUDED.growth,
+      price_band = EXCLUDED.price_band,
+      target_audience = EXCLUDED.target_audience,
+      content_scene = EXCLUDED.content_scene,
+      category = EXCLUDED.category,
+      keywords = EXCLUDED.keywords,
+      status = EXCLUDED.status,
+      risk_level = EXCLUDED.risk_level,
+      supply = EXCLUDED.supply,
+      score = EXCLUDED.score,
+      updated_at = EXCLUDED.updated_at
+    RETURNING *`,
+    [
+      candidate.id,
+      candidate.name,
+      candidate.originalTitle,
+      candidate.description,
+      candidate.platform,
+      candidate.sourceUrl,
+      candidate.heat,
+      candidate.growth,
+      candidate.priceBand,
+      candidate.targetAudience,
+      candidate.contentScene,
+      candidate.category,
+      candidate.keywords,
+      candidate.status,
+      candidate.riskLevel,
+      (candidate.supply || null) as any,
+      (candidate.score || null) as any,
+      candidate.createdAt,
+      candidate.updatedAt,
+    ],
+  )
+}
+
 async function readCache(): Promise<TrendCandidate[]> {
   try {
-    const rows = JSON.parse(await fs.readFile(CACHE_FILE, "utf-8"))
+    const rows = JSON.parse(await fs.readFile(await dataPath(CACHE_FILE), "utf-8"))
     return Array.isArray(rows) ? rows.map(normalizeCandidateInput) : []
   } catch {
     return []
@@ -218,7 +291,7 @@ async function readCache(): Promise<TrendCandidate[]> {
 }
 
 async function writeCache(rows: TrendCandidate[]) {
-  await fs.writeFile(CACHE_FILE, JSON.stringify(rows, null, 2), "utf-8")
+  await fs.writeFile(await dataPath(CACHE_FILE), JSON.stringify(rows, null, 2), "utf-8")
 }
 
 function mergeCandidates(primary: TrendCandidate[], secondary: TrendCandidate[]) {
@@ -234,11 +307,20 @@ function mergeCandidates(primary: TrendCandidate[], secondary: TrendCandidate[])
 }
 
 export async function listCandidates() {
+  const dbRows = await dbList()
+  if (dbRows) return mergeCandidates(dbRows, seedCandidates)
   return mergeCandidates(await readCache(), seedCandidates)
 }
 
 export async function createCandidate(input: any) {
   const candidate = normalizeCandidateInput(input)
+  const existing = (await listCandidates()).find((item) => item.id === candidate.id)
+  if (existing?.status === "promoted") return existing
+  try {
+    const row = await dbUpsert(candidate)
+    if (row) return fromDb(row)
+  } catch {}
+
   const rows = await listCandidates()
   rows.unshift(candidate)
   await writeCache(rows.filter((row) => !seedCandidates.some((seed) => seed.id === row.id)))
@@ -257,6 +339,12 @@ export async function updateCandidate(id: string, updater: (candidate: TrendCand
   if (index < 0) throw new Error("候选商品不存在")
   rows[index] = updater(rows[index])
   rows[index].updatedAt = now()
+
+  try {
+    const row = await dbUpsert(rows[index])
+    if (row) return fromDb(row)
+  } catch {}
+
   await writeCache(rows.filter((row) => !seedCandidates.some((seed) => seed.id === row.id)))
   return rows[index]
 }
