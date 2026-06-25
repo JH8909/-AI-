@@ -14,6 +14,7 @@ interface Settings {
   supabaseKey: string
   serviceRoleKey: string
   databaseUrl: string
+  trendSourceUrls: string
   wecomWebhookUrl: string
   feishuWebhookUrl: string
 }
@@ -26,6 +27,7 @@ const _settings: Settings = {
   supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   databaseUrl: process.env.DATABASE_URL || process.env.POSTGRES_URL || "",
+  trendSourceUrls: process.env.TREND_SOURCE_URLS || "",
   wecomWebhookUrl: process.env.WECOM_WEBHOOK_URL || "",
   feishuWebhookUrl: process.env.FEISHU_WEBHOOK_URL || "",
 }

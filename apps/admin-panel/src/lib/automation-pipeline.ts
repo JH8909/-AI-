@@ -1,10 +1,13 @@
-import { createCandidate, listCandidates, scoreCandidate, verifyCandidateSupply, buildPromotionProduct, promoteCandidate } from "@/lib/trend-candidates-store"
+import { buildPromotionProduct, createCandidate, listCandidates, scoreCandidate, verifyCandidateSupply, promoteCandidate } from "@/lib/trend-candidates-store"
+import { collectPublicTrendCandidates } from "@/lib/trend-source-collector"
 import { normalizeDbProduct, queryOne } from "@/lib/postgres"
 
 export interface AutomationRunOptions {
   promoteThreshold?: number
   maxPromotions?: number
   seedOnly?: boolean
+  collectLimit?: number
+  includeCurated?: boolean
 }
 
 const curatedTrendInputs = [
@@ -87,9 +90,9 @@ async function createProduct(payload: any) {
 async function createDraftForProduct(product: any, candidate: any) {
   const title = `${product.name}，适合先小规模测试的趋势单品`
   const body = [
-    `最近看到${candidate.platform || "内容平台"}上${product.name}相关内容热度上升。`,
+    `最近看到 ${candidate.platform || "内容平台"} 上 ${product.name} 相关内容热度上升。`,
     `适合场景：${candidate.contentScene || "日常使用"}`,
-    `建议先用小红书种草笔记测试点击和咨询，再决定是否扩大备货。`,
+    "建议先用小红书种草笔记测试点击和咨询，再决定是否扩大备货。",
   ].join("\n")
 
   const existing = await queryOne(
@@ -127,20 +130,34 @@ async function createDraftForProduct(product: any, candidate: any) {
 export async function runAutomationPipeline(options: AutomationRunOptions = {}) {
   const promoteThreshold = options.promoteThreshold ?? 65
   const maxPromotions = options.maxPromotions ?? 2
+  const includeCurated = options.includeCurated ?? true
   const created: any[] = []
+  const collected: any[] = []
   const verified: any[] = []
   const scored: any[] = []
   const promoted: any[] = []
   const drafted: any[] = []
 
-  for (const input of curatedTrendInputs) {
-    const candidate = await createCandidate(input)
-    created.push(candidate)
-    if (candidate.status === "promoted") continue
-    if (input.supply) {
-      verified.push(await verifyCandidateSupply(candidate.id, input.supply))
+  if (!options.seedOnly) {
+    const liveRows = await collectPublicTrendCandidates(options.collectLimit ?? 8)
+    collected.push(...liveRows)
+    for (const input of liveRows) {
+      const candidate = await createCandidate(input)
+      created.push(candidate)
+      scored.push(await scoreCandidate(candidate.id))
     }
-    scored.push(await scoreCandidate(candidate.id))
+  }
+
+  if (includeCurated) {
+    for (const input of curatedTrendInputs) {
+      const candidate = await createCandidate(input)
+      created.push(candidate)
+      if (candidate.status === "promoted") continue
+      if (input.supply) {
+        verified.push(await verifyCandidateSupply(candidate.id, input.supply))
+      }
+      scored.push(await scoreCandidate(candidate.id))
+    }
   }
 
   if (!options.seedOnly) {
@@ -166,11 +183,13 @@ export async function runAutomationPipeline(options: AutomationRunOptions = {}) 
   }
 
   return {
+    collectedCount: collected.length,
     createdCount: created.length,
     verifiedCount: verified.length,
     scoredCount: scored.length,
     promotedCount: promoted.filter((item) => item.product).length,
     draftedCount: drafted.filter((item) => item.draft).length,
+    collected,
     created,
     verified,
     scored,
