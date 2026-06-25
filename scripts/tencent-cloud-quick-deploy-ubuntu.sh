@@ -35,6 +35,17 @@ echo "==> Installing system packages"
 apt-get update
 apt-get install -y curl ca-certificates gnupg nginx postgresql postgresql-contrib openssl
 
+if [ ! -f /swapfile ]; then
+  echo "==> Creating 2GB swapfile for builds"
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo "/swapfile none swap sw 0 0" >> /etc/fstab
+elif ! swapon --show=NAME | grep -q '^/swapfile$'; then
+  swapon /swapfile || true
+fi
+
 if ! command -v node >/dev/null 2>&1 || ! node -e "process.exit(Number(process.versions.node.split('.')[0]) >= ${NODE_MAJOR} ? 0 : 1)"; then
   echo "==> Installing Node.js ${NODE_MAJOR}"
   curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
