@@ -4,7 +4,7 @@
 // ============================================
 
 import { promises as fs } from "fs"
-import path from "path"
+import { dataPath } from "@/lib/data-dir"
 
 interface Settings {
   deepseekApiKey: string
@@ -13,6 +13,7 @@ interface Settings {
   supabaseUrl: string
   supabaseKey: string
   serviceRoleKey: string
+  databaseUrl: string
   wecomWebhookUrl: string
   feishuWebhookUrl: string
 }
@@ -24,6 +25,7 @@ const _settings: Settings = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  databaseUrl: process.env.DATABASE_URL || process.env.POSTGRES_URL || "",
   wecomWebhookUrl: process.env.WECOM_WEBHOOK_URL || "",
   feishuWebhookUrl: process.env.FEISHU_WEBHOOK_URL || "",
 }
@@ -34,7 +36,7 @@ export async function initSettings() {
   if (_initialized) return
   _initialized = true
   try {
-    const fpath = path.join(process.cwd(), "settings.local.json")
+    const fpath = await dataPath("settings.local.json")
     const data = await fs.readFile(fpath, "utf-8")
     Object.assign(_settings, JSON.parse(data))
   } catch { /* use defaults */ }
@@ -48,7 +50,7 @@ export async function updateSettings(partial: Partial<Settings>): Promise<Settin
   Object.assign(_settings, partial)
   // Try to persist to file (best effort)
   try {
-    const fpath = path.join(process.cwd(), "settings.local.json")
+    const fpath = await dataPath("settings.local.json")
     await fs.writeFile(fpath, JSON.stringify(_settings, null, 2), "utf-8")
   } catch { /* file write failed but in-memory is fine */ }
   return getSettings()

@@ -1,21 +1,15 @@
 import { apiResponse, apiError } from "@/lib/data/mock-data"
-import { getSupabaseClient } from "@/lib/supabase"
+import { queryRows } from "@/lib/postgres"
 import { boundedStringList, readJson } from "../api-utils"
 
 export async function GET() {
   try {
-    const supabase = await getSupabaseClient()
-    if (!supabase) return apiError("Supabase 未配置", 503)
-    const { data, error } = await supabase.from("monitor_keywords").select("*").order("kind", { ascending: false }).order("created_at", { ascending: true })
-    if (error) {
-      if (String(error.message || error).includes("Could not find the table")) {
-        return apiResponse({ mock: true, error: "Supabase 表未创建，请先执行迁移SQL" })
-      }
-      return apiError(error.message)
-    }
-    return apiResponse(data || [])
+    const data = await queryRows(
+      "SELECT * FROM monitor_keywords ORDER BY kind DESC, created_at ASC",
+    )
+    return apiResponse(data)
   } catch (err: any) {
-    return apiResponse({ keywords: [], mock: true, note: "Supabase 表未创建或未配置" })
+    return apiResponse({ keywords: [], mock: true, note: err.message || "服务器数据库未配置或雷达表未创建" })
   }
 }
 
@@ -24,25 +18,24 @@ export async function POST(req: Request) {
     const body = await readJson(req)
     const keywords = boundedStringList(body.keywords || body.seeds, 10)
     if (!keywords.length) return apiError("请至少提供 1 个监控关键词", 400)
-    const supabase = await getSupabaseClient()
-    if (!supabase) return apiError("Supabase 未配置", 503)
-    const { error: de } = await supabase.from("monitor_keywords").update({ enabled: false }).eq("kind", "seed").not("keyword", "in", `(${keywords.map(k => '"' + k.replace(/"/g, '\"') + '"').join(",")})`)
-    if (de) {
-      if (String(de.message || de).includes("Could not find the table") || String(de.message || de).includes("schema cache")) {
-        return apiResponse({ mock: true, error: "Supabase 表未创建，请先执行迁移SQL" })
-      }
-      return apiError(de.message)
+
+    if (keywords.length) {
+      await queryRows(
+        "UPDATE monitor_keywords SET enabled = false WHERE kind = 'seed' AND NOT (keyword = ANY($1::text[]))",
+        [keywords],
+      )
     }
-    const rows = keywords.map(k => ({ keyword: k, kind: "seed", enabled: true, consecutive_failures: 0 }))
-    const { data, error } = await supabase.from("monitor_keywords").upsert(rows, { onConflict: "keyword" }).select("*")
-    if (error) {
-      if (String(error.message || error).includes("Could not find the table")) {
-        return apiResponse({ mock: true, error: "Supabase 表未创建，请先执行迁移SQL" })
-      }
-      return apiError(error.message)
-    }
-    return apiResponse(data || [])
+
+    const rows = await queryRows(
+      `INSERT INTO monitor_keywords (keyword, kind, enabled, consecutive_failures)
+       SELECT keyword, 'seed', true, 0
+       FROM unnest($1::text[]) AS keyword
+       ON CONFLICT (keyword) DO UPDATE SET kind = 'seed', enabled = true
+       RETURNING *`,
+      [keywords],
+    )
+    return apiResponse(rows)
   } catch (err: any) {
-    return apiResponse({ saved: false, mock: true, note: "Supabase 表未创建或未配置" })
+    return apiResponse({ saved: false, mock: true, note: err.message || "服务器数据库未配置或雷达表未创建" })
   }
 }

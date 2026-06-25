@@ -1,30 +1,33 @@
-import { getSupabaseClient, withSupabaseTimeout } from "@/lib/supabase"
-import { mockScores, apiResponse, apiError } from "@/lib/data/mock-data"
+import { mockScores, apiResponse } from "@/lib/data/mock-data"
+import { queryRows } from "@/lib/postgres"
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const productId = url.searchParams.get("product_id")
 
-  const fallback = () => {
-    let data = [...mockScores]
-    if (productId) data = data.filter(s => s.product_id === productId)
-    return apiResponse(data)
-  }
-  const supabase = await getSupabaseClient()
-  if (!supabase) return fallback()
-
   try {
-    let query = supabase.from("product_scores").select("*, products(name)")
-    if (productId) query = query.eq("product_id", productId)
-    query = query.order("created_at", { ascending: false })
-
-    const { data, error } = await withSupabaseTimeout(query)
-    if (!error && data) {
-      return apiResponse((data || []).map((item: any) => ({
-        ...item,
-        productName: item.products?.name || item.productName || item.product_id,
-      })))
+    const params: any[] = []
+    const where: string[] = []
+    if (productId) {
+      params.push(productId)
+      where.push(`s.product_id = $${params.length}`)
     }
+    const rows = await queryRows(
+      `SELECT s.*, p.name AS product_name
+       FROM product_scores s
+       LEFT JOIN products p ON p.id = s.product_id
+       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+       ORDER BY s.created_at DESC`,
+      params,
+    )
+    return apiResponse(rows.map((item: any) => ({
+      ...item,
+      overall_score: item.overall_score == null ? null : Number(item.overall_score),
+      productName: item.product_name || item.productName || item.product_id,
+    })))
   } catch {}
-  return fallback()
+
+  let data = [...mockScores]
+  if (productId) data = data.filter((s) => s.product_id === productId)
+  return apiResponse(data)
 }

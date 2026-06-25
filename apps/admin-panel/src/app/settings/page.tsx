@@ -13,7 +13,9 @@ export default function SettingsPage() {
   const [supabaseUrl, setSupabaseUrl] = useState("")
   const [supabaseKey, setSupabaseKey] = useState("")
   const [serviceRoleKey, setServiceRoleKey] = useState("")
+  const [databaseUrl, setDatabaseUrl] = useState("")
   const [hasServiceRoleKey, setHasServiceRoleKey] = useState(false)
+  const [hasDatabaseUrl, setHasDatabaseUrl] = useState(false)
   const [wecomWebhookUrl, setWecomWebhookUrl] = useState("")
   const [feishuWebhookUrl, setFeishuWebhookUrl] = useState("")
   const [hasWeComWebhookUrl, setHasWeComWebhookUrl] = useState(false)
@@ -37,6 +39,7 @@ export default function SettingsPage() {
         setSupabaseUrl(d.data.supabaseUrl || "")
         setSupabaseKey(d.data.supabaseKey || "")
         setHasServiceRoleKey(Boolean(d.data.hasSupabaseServiceRoleKey))
+        setHasDatabaseUrl(Boolean(d.data.hasDatabaseUrl))
         setHasWeComWebhookUrl(Boolean(d.data.hasWeComWebhookUrl))
         setHasFeishuWebhookUrl(Boolean(d.data.hasFeishuWebhookUrl))
       }
@@ -73,6 +76,7 @@ export default function SettingsPage() {
         supabaseKey,
       }
       if (serviceRoleKey.trim()) payload.serviceRoleKey = serviceRoleKey.trim()
+      if (databaseUrl.trim()) payload.databaseUrl = databaseUrl.trim()
       if (wecomWebhookUrl.trim()) payload.wecomWebhookUrl = wecomWebhookUrl.trim()
       if (feishuWebhookUrl.trim()) payload.feishuWebhookUrl = feishuWebhookUrl.trim()
 
@@ -84,9 +88,11 @@ export default function SettingsPage() {
       const d = await r.json()
       if (d.success) {
         setHasServiceRoleKey(Boolean(d.data.hasSupabaseServiceRoleKey))
+        setHasDatabaseUrl(Boolean(d.data.hasDatabaseUrl))
         setHasWeComWebhookUrl(Boolean(d.data.hasWeComWebhookUrl))
         setHasFeishuWebhookUrl(Boolean(d.data.hasFeishuWebhookUrl))
         setServiceRoleKey("")
+        setDatabaseUrl("")
         setWecomWebhookUrl("")
         setFeishuWebhookUrl("")
       }
@@ -166,8 +172,18 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>数据库配置（可选）</CardTitle><CardDescription>留空则使用 Mock 数据</CardDescription></CardHeader>
+        <CardHeader><CardTitle>腾讯云服务器数据库配置</CardTitle><CardDescription>推荐填写 PostgreSQL 连接串；留空时使用本地兜底数据</CardDescription></CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">PostgreSQL DATABASE_URL</label>
+            <Input
+              type="password"
+              placeholder={hasDatabaseUrl ? "已保存；如需更换请重新粘贴" : "postgresql://user:password@server-ip:5432/ecommerce_ai"}
+              value={databaseUrl}
+              onChange={e => setDatabaseUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">用于腾讯云轻量应用服务器上的 PostgreSQL 主数据库，不会回显到页面。</p>
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Supabase URL</label>
             <Input placeholder="https://your-project.supabase.co" value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} />
@@ -214,6 +230,9 @@ export default function SettingsPage() {
             <span className={`text-xs ${hasServiceRoleKey ? "text-green-600" : "text-yellow-600"}`}>
               {hasServiceRoleKey ? "Service Role Key 已保存" : "Service Role Key 未保存"}
             </span>
+            <span className={`text-xs ${hasDatabaseUrl ? "text-green-600" : "text-yellow-600"}`}>
+              {hasDatabaseUrl ? "DATABASE_URL 已保存" : "DATABASE_URL 未保存"}
+            </span>
           </div>
           {dbMessage && <div className={`p-3 rounded-lg text-sm ${dbMessage.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>{dbMessage.text}</div>}
         </CardContent>
@@ -237,3 +256,4 @@ export default function SettingsPage() {
     </div>
   )
 }
+

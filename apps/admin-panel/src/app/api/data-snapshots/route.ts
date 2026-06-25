@@ -1,5 +1,5 @@
-import { getSupabaseClient, withSupabaseTimeout } from "@/lib/supabase"
-import { apiResponse, apiError } from "@/lib/data/mock-data"
+import { apiResponse } from "@/lib/data/mock-data"
+import { queryOne, queryRows } from "@/lib/postgres"
 
 let _nextId = 100
 const _store: Record<string, any[]> = {}
@@ -9,11 +9,11 @@ export async function GET(req: Request) {
   const productId = url.searchParams.get("product_id") || ""
 
   try {
-    const supabase = await getSupabaseClient()
-    if (supabase) {
-      const { data, error } = await withSupabaseTimeout(supabase.from("data_snapshots").select("*").eq("product_id", productId).order("snapshot_date"))
-      if (!error && data?.length) return apiResponse(data)
-    }
+    const data = await queryRows(
+      "SELECT * FROM data_snapshots WHERE product_id = $1 ORDER BY snapshot_date",
+      [productId],
+    )
+    return apiResponse(data)
   } catch {}
 
   if (_store[productId] && _store[productId].length > 0) return apiResponse(_store[productId])
@@ -25,11 +25,45 @@ export async function POST(req: Request) {
   const pid = body.product_id || ""
 
   try {
-    const supabase = await getSupabaseClient()
-    if (supabase) {
-      const { data, error } = await withSupabaseTimeout(supabase.from("data_snapshots").upsert(body, { onConflict: "product_id,snapshot_date" }).select().single())
-      if (!error && data) return apiResponse(data, 201)
-    }
+    const data = await queryOne(
+      `INSERT INTO data_snapshots (
+        product_id, snapshot_date, views, likes, shares, sales_estimate, favorites, comments,
+        dms, consultations, deals, revenue, profit, refunds, raw_data
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      ON CONFLICT (product_id, snapshot_date) DO UPDATE SET
+        views = EXCLUDED.views,
+        likes = EXCLUDED.likes,
+        shares = EXCLUDED.shares,
+        sales_estimate = EXCLUDED.sales_estimate,
+        favorites = EXCLUDED.favorites,
+        comments = EXCLUDED.comments,
+        dms = EXCLUDED.dms,
+        consultations = EXCLUDED.consultations,
+        deals = EXCLUDED.deals,
+        revenue = EXCLUDED.revenue,
+        profit = EXCLUDED.profit,
+        refunds = EXCLUDED.refunds,
+        raw_data = EXCLUDED.raw_data
+      RETURNING *`,
+      [
+        pid,
+        body.snapshot_date,
+        body.views || 0,
+        body.likes || 0,
+        body.shares || 0,
+        body.sales_estimate || body.sales || 0,
+        body.favorites || 0,
+        body.comments || 0,
+        body.dms || 0,
+        body.consultations || 0,
+        body.deals || 0,
+        body.revenue || 0,
+        body.profit || 0,
+        body.refunds || 0,
+        body.raw_data || {},
+      ],
+    )
+    if (data) return apiResponse(data, 201)
   } catch {}
 
   if (!_store[pid]) _store[pid] = []

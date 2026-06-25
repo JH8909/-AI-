@@ -1,27 +1,28 @@
 import { mockSnapshots, recapSummary, apiResponse } from "@/lib/data/mock-data"
-import { getSupabaseClient, withSupabaseTimeout } from "@/lib/supabase"
+import { queryRows } from "@/lib/postgres"
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const productId = url.searchParams.get("product_id") || "1"
 
   try {
-    const supabase = await getSupabaseClient()
-    if (supabase) {
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      const { data, error } = await withSupabaseTimeout(supabase.from("data_snapshots")
-        .select("*").eq("product_id", productId)
-        .gte("snapshot_date", sevenDaysAgo.toISOString().split("T")[0])
-        .order("snapshot_date"))
-      if (!error && data?.length) {
-        return apiResponse({ product_id: productId, period: "7 days", snapshots: data, aiSummary: recapSummary })
-      }
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const data = await queryRows(
+      `SELECT * FROM data_snapshots
+       WHERE product_id = $1 AND snapshot_date >= $2
+       ORDER BY snapshot_date`,
+      [productId, sevenDaysAgo.toISOString().split("T")[0]],
+    )
+    if (data.length) {
+      return apiResponse({ product_id: productId, period: "7 days", snapshots: data, aiSummary: recapSummary })
     }
   } catch {}
 
   return apiResponse({
-    product_id: productId, period: "2026-06-16 ~ 2026-06-23",
-    snapshots: mockSnapshots, aiSummary: recapSummary
+    product_id: productId,
+    period: "2026-06-16 ~ 2026-06-23",
+    snapshots: mockSnapshots,
+    aiSummary: recapSummary,
   })
 }

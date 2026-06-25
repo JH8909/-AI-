@@ -1,8 +1,8 @@
 import { apiResponse, apiError } from "@/lib/data/mock-data"
-import { getSupabaseClient } from "@/lib/supabase"
 import { getSettings, initSettings } from "@/lib/settings-store"
 import { toChatCompletionsUrl } from "@/lib/import-link-utils"
 import { boundedStringList, readJson } from "../api-utils"
+import { queryRows } from "@/lib/postgres"
 
 export async function POST(req: Request) {
   const body = await readJson(req)
@@ -34,12 +34,16 @@ export async function POST(req: Request) {
     const parsed = JSON.parse(result.choices?.[0]?.message?.content || "{}")
     const expanded = boundedStringList(parsed.keywords, 50).filter((item) => !seeds.includes(item))
 
-    const supabase = await getSupabaseClient()
-    if (supabase && expanded.length) {
-      await supabase.from("monitor_keywords").upsert(
-        expanded.map((keyword) => ({ keyword, kind: "expanded", enabled: true })),
-        { onConflict: "keyword" }
-      )
+    if (expanded.length) {
+      try {
+        await queryRows(
+          `INSERT INTO monitor_keywords (keyword, kind, enabled)
+           SELECT keyword, 'expanded', true
+           FROM unnest($1::text[]) AS keyword
+           ON CONFLICT (keyword) DO UPDATE SET kind = 'expanded', enabled = true`,
+          [expanded],
+        )
+      } catch {}
     }
 
     return apiResponse({ seeds, expanded, model_used: cfg.defaultModel })

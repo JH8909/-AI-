@@ -1,7 +1,7 @@
 import { promises as fs } from "fs"
-import path from "path"
+import { dataPath } from "@/lib/data-dir"
 
-const CACHE_FILE = path.join(process.cwd(), ".products-cache.json")
+const CACHE_FILE = ".products-cache.json"
 
 export function normalizeProductName(value: string) {
   return value.replace(/[\s\p{P}]/gu, "").toLowerCase()
@@ -21,7 +21,7 @@ export function mergeProducts(primary: any[], secondary: any[]) {
 
 export async function readCachedProducts(): Promise<any[]> {
   try {
-    const data = JSON.parse(await fs.readFile(CACHE_FILE, "utf-8"))
+    const data = JSON.parse(await fs.readFile(await dataPath(CACHE_FILE), "utf-8"))
     return Array.isArray(data) ? data : []
   } catch {
     return []
@@ -30,7 +30,7 @@ export async function readCachedProducts(): Promise<any[]> {
 
 export async function writeCachedProducts(items: any[]) {
   try {
-    await fs.writeFile(CACHE_FILE, JSON.stringify(items, null, 2), "utf-8")
+    await fs.writeFile(await dataPath(CACHE_FILE), JSON.stringify(items, null, 2), "utf-8")
   } catch {
     // Local cache is a best-effort fallback; callers should still be able to proceed.
   }

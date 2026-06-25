@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@ecommerce/shared-types": [
+        "../../packages/shared-types/src"
       ]
     }
   },

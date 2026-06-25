@@ -1,6 +1,6 @@
-import { getSupabaseClient, withSupabaseTimeout } from "@/lib/supabase"
 import { mockProducts, apiResponse, apiError } from "@/lib/data/mock-data"
 import { createCachedProduct, mergeProducts, normalizeProductName, readCachedProducts, writeCachedProducts } from "@/lib/product-cache"
+import { normalizeDbProduct, queryOne, queryRows } from "@/lib/postgres"
 
 const localProducts = [...mockProducts]
 
@@ -16,39 +16,44 @@ export async function GET(req: Request) {
   const category = url.searchParams.get("category") || "all"
   const status = url.searchParams.get("status") || "all"
 
-  const filterData = (items: any[]) => {
-    let data = items
-    if (search) data = data.filter(p => p.name.includes(search))
-    if (category !== "all") data = data.filter(p => p.category === category)
-    if (status !== "all") data = data.filter(p => p.status === status)
+  const cachedProducts = await readCachedProducts()
+  const fallback = () => {
+    let data = mergeProducts(cachedProducts, localProducts)
+    if (search) data = data.filter((p: any) => String(p.name || "").includes(search))
+    if (category !== "all") data = data.filter((p: any) => p.category === category)
+    if (status !== "all") data = data.filter((p: any) => p.status === status)
     return apiResponse(data)
   }
 
-  const cachedProducts = await readCachedProducts()
-  const fallback = () => filterData(mergeProducts(cachedProducts, localProducts))
-
-  const supabase = await getSupabaseClient()
-  if (!supabase) return fallback()
-
   try {
-    let query = supabase.from("products").select("*")
-    if (search) query = query.ilike("name", `%${search}%`)
-    if (category !== "all") query = query.eq("category", category)
-    if (status !== "all") query = query.eq("status", status)
-    query = query.order("created_at", { ascending: false })
-
-    const { data, error } = await withSupabaseTimeout(query)
-    if (!error && data) return filterData(mergeProducts(cachedProducts, data))
-  } catch {}
-  return fallback()
+    const where: string[] = []
+    const params: any[] = []
+    if (search) {
+      params.push(`%${search}%`)
+      where.push(`name ILIKE $${params.length}`)
+    }
+    if (category !== "all") {
+      params.push(category)
+      where.push(`category = $${params.length}`)
+    }
+    if (status !== "all") {
+      params.push(status)
+      where.push(`status = $${params.length}`)
+    }
+    const rows = await queryRows(
+      `SELECT * FROM products ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at DESC`,
+      params,
+    )
+    return apiResponse(mergeProducts(cachedProducts, rows.map(normalizeDbProduct)))
+  } catch {
+    return fallback()
+  }
 }
 
 export async function POST(req: Request) {
   const body = await req.json()
   if (!body.source) body.source = "manual"
-  const supabase = await getSupabaseClient()
 
-  // Dedup check
   if (body.name) {
     const newName = normalizeProductName(body.name)
     const cachedProducts = await readCachedProducts()
@@ -58,31 +63,47 @@ export async function POST(req: Request) {
     })
     if (localDup) return apiError("重复产品: 已存在 '" + localDup.name + "'", 409)
 
-    if (supabase) {
-      try {
-        const { data: existing } = await withSupabaseTimeout(supabase.from("products").select("id,name").limit(50))
-      if (existing) {
-        const dup = existing.find((p: any) => {
-          const existingName = normalizeProductName(p.name || "")
-          return existingName === newName || existingName.includes(newName) || newName.includes(existingName)
-        })
-        if (dup) return apiError("重复产品: 已存在 '" + dup.name + "'", 409)
-      }
-      } catch {}
-    }
+    try {
+      const existing = await queryRows<{ id: string; name: string }>(
+        "SELECT id, name FROM products ORDER BY created_at DESC LIMIT 200",
+      )
+      const dup = existing.find((p) => {
+        const existingName = normalizeProductName(p.name || "")
+        return existingName === newName || existingName.includes(newName) || newName.includes(existingName)
+      })
+      if (dup) return apiError("重复产品: 已存在 '" + dup.name + "'", 409)
+    } catch {}
   }
 
-  if (!supabase) {
-    return apiResponse(await createLocalProduct(body), 201)
-  }
   try {
-    const { data, error } = await withSupabaseTimeout(supabase.from("products").insert(body).select().single())
-    if (!error && data) {
+    const data = await queryOne(
+      `INSERT INTO products (
+        name, description, category, source, source_url, price, cost, images, specs, tags, status, risk_level
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      RETURNING *`,
+      [
+        body.name || "",
+        body.description || "",
+        body.category || "other",
+        body.source || "manual",
+        body.source_url || null,
+        body.price ?? null,
+        body.cost ?? null,
+        Array.isArray(body.images) ? body.images : [],
+        body.specs || {},
+        Array.isArray(body.tags) ? body.tags : [],
+        body.status || "draft",
+        body.risk_level || "safe",
+      ],
+    )
+    if (data) {
+      const product = normalizeDbProduct(data)
       const cached = await readCachedProducts()
-      cached.unshift(data)
+      cached.unshift(product)
       await writeCachedProducts(mergeProducts(cached, []))
-      return apiResponse(data, 201)
+      return apiResponse(product, 201)
     }
   } catch {}
+
   return apiResponse(await createLocalProduct(body), 201)
 }

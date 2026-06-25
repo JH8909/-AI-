@@ -1,20 +1,21 @@
-import { apiResponse, apiError } from "@/lib/data/mock-data"
-import { getSupabaseClient } from "@/lib/supabase"
+import { apiResponse } from "@/lib/data/mock-data"
+import { normalizeDbProduct, queryOne } from "@/lib/postgres"
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
-    const supabase = await getSupabaseClient()
-    if (!supabase) return apiError("Supabase 未配置", 503)
     const body = await req.json()
-    const { data, error } = await supabase.from("products").upsert(body).eq("id", params.id).select().single()
-    if (error) {
-      if (String(error.message || error).includes("Could not find the table")) {
-        return apiResponse({ mock: true, error: "Supabase 表未创建，请先执行迁移SQL" })
-      }
-      return apiError(error.message)
-    }
-    return apiResponse(data)
+    const product = await queryOne(
+      `UPDATE products
+       SET radar_state = COALESCE($2, radar_state),
+           status = COALESCE($3, status),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [params.id, body.radar_state || body.state || null, body.status || null],
+    )
+    if (product) return apiResponse(normalizeDbProduct(product))
   } catch (err: any) {
-    return apiResponse({ mock: true, note: "Supabase 未配置" })
+    return apiResponse({ mock: true, note: err.message || "服务器数据库未配置或产品表未创建" })
   }
+  return apiResponse({ mock: true, note: "产品未找到" })
 }
