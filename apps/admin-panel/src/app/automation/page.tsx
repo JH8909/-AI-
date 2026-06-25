@@ -28,6 +28,17 @@ type RunResult = {
   draftedCount?: number
 }
 
+type AutomationStatus = {
+  storage: "postgres" | "local-cache"
+  trendCandidates: number
+  scoredCandidates: number
+  verifiedSupply: number
+  hotRadarProducts: number
+  contentDrafts: number
+  pendingReviews: number
+  trendSourceCount: number
+}
+
 const statusLabels: Record<AutomationRun["status"], string> = {
   running: "运行中",
   succeeded: "成功",
@@ -48,6 +59,7 @@ function countFrom(run: AutomationRun, key: keyof RunResult) {
 export default function AutomationPage() {
   const { toast } = useToast()
   const [runs, setRuns] = useState<AutomationRun[]>([])
+  const [status, setStatus] = useState<AutomationStatus | null>(null)
   const [lastResult, setLastResult] = useState<RunResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
@@ -59,7 +71,7 @@ export default function AutomationPage() {
 
   useEffect(() => {
     setToken(sessionStorage.getItem("automationToken") || "")
-    loadRuns()
+    refreshAll()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -72,17 +84,28 @@ export default function AutomationPage() {
   }), [runs])
 
   async function loadRuns() {
+    const headers: Record<string, string> = {}
+    const savedToken = sessionStorage.getItem("automationToken") || token
+    if (savedToken) headers["x-automation-token"] = savedToken
+    const res = await fetch("/api/automation/run?history=1&limit=20", { headers })
+    const data = await res.json()
+    if (!data.success) throw new Error(data.error || "加载自动化运行记录失败")
+    setRuns(data.data || [])
+  }
+
+  async function loadStatus() {
+    const res = await fetch("/api/automation/status")
+    const data = await res.json()
+    if (!data.success) throw new Error(data.error || "加载自动化状态失败")
+    setStatus(data.data)
+  }
+
+  async function refreshAll() {
     setLoading(true)
     try {
-      const headers: Record<string, string> = {}
-      const savedToken = sessionStorage.getItem("automationToken") || token
-      if (savedToken) headers["x-automation-token"] = savedToken
-      const res = await fetch("/api/automation/run?history=1&limit=20", { headers })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || "加载自动化运行记录失败")
-      setRuns(data.data || [])
+      await Promise.all([loadRuns(), loadStatus()])
     } catch (err: any) {
-      toast("error", err.message || "加载自动化运行记录失败")
+      toast("error", err.message || "加载自动化状态失败")
     }
     setLoading(false)
   }
@@ -112,7 +135,7 @@ export default function AutomationPage() {
       }
       setLastResult(data.data)
       toast("success", "自动化任务已运行")
-      await loadRuns()
+      await refreshAll()
     } catch (err: any) {
       toast("error", err.message || "自动化运行失败")
     }
@@ -126,9 +149,9 @@ export default function AutomationPage() {
           <h1 className="text-2xl font-bold">自动化任务</h1>
           <p className="text-sm text-muted-foreground mt-1">定时采集趋势线索，验证供货，评分，入产品池，并生成待审核内容。</p>
         </div>
-        <Button variant="outline" onClick={loadRuns} disabled={loading || running}>
+        <Button variant="outline" onClick={refreshAll} disabled={loading || running}>
           {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-          刷新记录
+          刷新状态
         </Button>
       </div>
 
@@ -136,7 +159,20 @@ export default function AutomationPage() {
         <Card><CardHeader className="pb-2"><CardDescription>最近状态</CardDescription><CardTitle className="text-lg">{latestRun ? statusLabels[latestRun.status] : "暂无记录"}</CardTitle></CardHeader></Card>
         <Card><CardHeader className="pb-2"><CardDescription>成功运行</CardDescription><CardTitle>{summary.succeeded}</CardTitle></CardHeader></Card>
         <Card><CardHeader className="pb-2"><CardDescription>失败运行</CardDescription><CardTitle>{summary.failed}</CardTitle></CardHeader></Card>
-        <Card><CardHeader className="pb-2"><CardDescription>生成草稿</CardDescription><CardTitle>{summary.drafted}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>累计生成草稿</CardDescription><CardTitle>{summary.drafted}</CardTitle></CardHeader></Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card><CardHeader className="pb-2"><CardDescription>趋势候选</CardDescription><CardTitle>{status?.trendCandidates ?? "-"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>供货已验证</CardDescription><CardTitle>{status?.verifiedSupply ?? "-"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>产品池入池</CardDescription><CardTitle>{status?.hotRadarProducts ?? "-"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>待审核内容</CardDescription><CardTitle>{status?.pendingReviews ?? "-"}</CardTitle></CardHeader></Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card><CardHeader className="pb-2"><CardDescription>已评分候选</CardDescription><CardTitle>{status?.scoredCandidates ?? "-"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>内容草稿</CardDescription><CardTitle>{status?.contentDrafts ?? "-"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>存储模式 / 采集源</CardDescription><CardTitle className="text-lg">{status ? `${status.storage} / ${status.trendSourceCount}` : "-"}</CardTitle></CardHeader></Card>
       </div>
 
       <Card>
@@ -184,7 +220,7 @@ export default function AutomationPage() {
       <Card>
         <CardHeader>
           <CardTitle>最近运行</CardTitle>
-          <CardDescription>服务器启用 PostgreSQL 后会记录每次 cron 或手动运行。</CardDescription>
+          <CardDescription>服务器启用 PostgreSQL 后会记录每次 cron 或手动运行；简单版会使用本地文件兜底。</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -220,7 +256,7 @@ export default function AutomationPage() {
                 {!runs.length && (
                   <tr>
                     <td colSpan={5} className="p-10 text-center text-muted-foreground">
-                      暂无运行记录。本地无 PostgreSQL 时不会持久化历史，但手动运行仍可验证流程返回。
+                      暂无运行记录。点击立即运行后，这里会显示本次闭环结果。
                     </td>
                   </tr>
                 )}
