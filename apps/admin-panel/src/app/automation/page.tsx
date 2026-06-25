@@ -36,6 +36,8 @@ type AutomationStatus = {
   hotRadarProducts: number
   contentDrafts: number
   pendingReviews: number
+  pendingPublishes: number
+  publishedRecords: number
   trendSourceCount: number
 }
 
@@ -169,9 +171,11 @@ export default function AutomationPage() {
         <Card><CardHeader className="pb-2"><CardDescription>待审核内容</CardDescription><CardTitle>{status?.pendingReviews ?? "-"}</CardTitle></CardHeader></Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card><CardHeader className="pb-2"><CardDescription>已评分候选</CardDescription><CardTitle>{status?.scoredCandidates ?? "-"}</CardTitle></CardHeader></Card>
         <Card><CardHeader className="pb-2"><CardDescription>内容草稿</CardDescription><CardTitle>{status?.contentDrafts ?? "-"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>待发布</CardDescription><CardTitle>{status?.pendingPublishes ?? "-"}</CardTitle></CardHeader></Card>
+        <Card><CardHeader className="pb-2"><CardDescription>已发布</CardDescription><CardTitle>{status?.publishedRecords ?? "-"}</CardTitle></CardHeader></Card>
         <Card><CardHeader className="pb-2"><CardDescription>存储模式 / 采集源</CardDescription><CardTitle className="text-lg">{status ? `${status.storage} / ${status.trendSourceCount}` : "-"}</CardTitle></CardHeader></Card>
       </div>
 

@@ -5,6 +5,7 @@ import { listAutomationRuns } from "@/lib/automation-run-store"
 import { listCandidates } from "@/lib/trend-candidates-store"
 import { queryOne } from "@/lib/postgres"
 import { readCachedProducts } from "@/lib/product-cache"
+import { listPublishRecords, readCachedPublishRecords } from "@/lib/publish-record-store"
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +30,7 @@ export async function GET() {
       countDb("SELECT COUNT(*) FROM content_drafts"),
       countDb("SELECT COUNT(*) FROM review_queue WHERE status = 'pending'"),
     ])
+    const publishRecords = await listPublishRecords()
 
     return apiResponse({
       storage: "postgres",
@@ -38,14 +40,17 @@ export async function GET() {
       hotRadarProducts: products,
       contentDrafts: drafts,
       pendingReviews: reviewPending,
+      pendingPublishes: publishRecords.filter((item) => item.status === "pending_publish").length,
+      publishedRecords: publishRecords.filter((item) => item.status === "published").length,
       trendSourceCount: countConfiguredSources(settings.trendSourceUrls),
       lastRun,
     })
   } catch {
-    const [products, drafts, reviews] = await Promise.all([
+    const [products, drafts, reviews, publishRecords] = await Promise.all([
       readCachedProducts(),
       readCachedContentDrafts(),
       readCachedReviewItems(),
+      readCachedPublishRecords(),
     ])
 
     return apiResponse({
@@ -56,6 +61,8 @@ export async function GET() {
       hotRadarProducts: products.filter((item) => item.source === "hot_radar").length,
       contentDrafts: drafts.length,
       pendingReviews: reviews.filter((item) => item.status === "pending").length,
+      pendingPublishes: publishRecords.filter((item) => item.status === "pending_publish").length,
+      publishedRecords: publishRecords.filter((item) => item.status === "published").length,
       trendSourceCount: countConfiguredSources(settings.trendSourceUrls),
       lastRun,
     })

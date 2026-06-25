@@ -117,6 +117,7 @@ export async function POST(req: Request) {
         await cacheReviewItem({
           content_draft_id: draft.id,
           contentDraftId: draft.id,
+          product_id: body.product_id,
           productName: body.productName || body.product_id,
           platform: body.platform,
           title: body.title || "",
@@ -147,6 +148,7 @@ export async function POST(req: Request) {
   await cacheReviewItem({
     content_draft_id: draft.id,
     contentDraftId: draft.id,
+    product_id: body.product_id,
     productName: body.productName || body.product_id,
     platform: body.platform,
     title: body.title || "",

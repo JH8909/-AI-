@@ -36,6 +36,19 @@ export async function writeCachedReviewItems(rows: any[]) {
   await writeJsonArray(REVIEW_CACHE_FILE, rows)
 }
 
+export async function updateCachedContentDraftStatus(id: string, status: string) {
+  const rows = await readCachedContentDrafts()
+  const index = rows.findIndex((item) => item.id === id || item.content_draft_id === id || item.contentDraftId === id)
+  if (index < 0) return null
+  rows[index] = {
+    ...rows[index],
+    status,
+    updated_at: new Date().toISOString(),
+  }
+  await writeCachedContentDrafts(rows)
+  return rows[index]
+}
+
 export async function createCachedContentDraft(body: any) {
   const draft = {
     id: body.id || randomUUID(),
@@ -66,6 +79,8 @@ export async function cacheReviewItem(item: any) {
     id: item.id || randomUUID(),
     content_draft_id: item.content_draft_id || item.contentDraftId,
     contentDraftId: item.contentDraftId || item.content_draft_id,
+    product_id: item.product_id || item.productId || null,
+    productId: item.productId || item.product_id || null,
     productName: item.productName || item.product_name || item.product_id || "",
     platform: item.platform || "",
     title: item.title || "",

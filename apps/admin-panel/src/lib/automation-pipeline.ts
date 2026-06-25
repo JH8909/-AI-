@@ -151,6 +151,7 @@ async function createCachedDraftForProduct(product: any, candidate: any) {
   await cacheReviewItem({
     content_draft_id: draft.id,
     contentDraftId: draft.id,
+    product_id: product.id,
     productName: product.name,
     platform: "xiaohongshu",
     title,
