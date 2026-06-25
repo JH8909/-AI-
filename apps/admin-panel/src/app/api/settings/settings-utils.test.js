@@ -28,3 +28,13 @@ test("empty service role key does not clear existing saved key", () => {
   assert.equal(Object.hasOwn(patch, "serviceRoleKey"), false)
   assert.equal(Object.hasOwn(patch, "deepseekApiKey"), false)
 })
+
+test("omitted trend source urls do not clear existing saved sources", () => {
+  const patch = settingsPatchFromBody({
+    defaultModel: "deepseek-chat",
+    supabaseUrl: "",
+    supabaseKey: "",
+  })
+
+  assert.equal(Object.hasOwn(patch, "trendSourceUrls"), false)
+})

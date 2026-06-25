@@ -18,6 +18,7 @@ export default function SettingsPage() {
   const [hasDatabaseUrl, setHasDatabaseUrl] = useState(false)
   const [wecomWebhookUrl, setWecomWebhookUrl] = useState("")
   const [feishuWebhookUrl, setFeishuWebhookUrl] = useState("")
+  const [trendSourceUrls, setTrendSourceUrls] = useState("")
   const [hasWeComWebhookUrl, setHasWeComWebhookUrl] = useState(false)
   const [hasFeishuWebhookUrl, setHasFeishuWebhookUrl] = useState(false)
   const [hasSavedDeepSeekKey, setHasSavedDeepSeekKey] = useState(false)
@@ -40,6 +41,7 @@ export default function SettingsPage() {
         setSupabaseKey(d.data.supabaseKey || "")
         setHasServiceRoleKey(Boolean(d.data.hasSupabaseServiceRoleKey))
         setHasDatabaseUrl(Boolean(d.data.hasDatabaseUrl))
+        setTrendSourceUrls(d.data.trendSourceUrls || "")
         setHasWeComWebhookUrl(Boolean(d.data.hasWeComWebhookUrl))
         setHasFeishuWebhookUrl(Boolean(d.data.hasFeishuWebhookUrl))
       }
@@ -74,6 +76,7 @@ export default function SettingsPage() {
         llmBaseURL: baseURL,
         supabaseUrl,
         supabaseKey,
+        trendSourceUrls,
       }
       if (serviceRoleKey.trim()) payload.serviceRoleKey = serviceRoleKey.trim()
       if (databaseUrl.trim()) payload.databaseUrl = databaseUrl.trim()
@@ -201,6 +204,16 @@ export default function SettingsPage() {
               onChange={e => setServiceRoleKey(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">仅保存到本地服务端配置，用于后端写入 Supabase，不会回显到页面。</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">趋势采集源 URL</label>
+            <textarea
+              className="flex min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder={"https://www.bing.com/news/search?q=小红书+爆款&format=rss\nhttps://www.bing.com/news/search?q=闲鱼+热卖&format=rss"}
+              value={trendSourceUrls}
+              onChange={e => setTrendSourceUrls(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">一行一个公开 RSS/XML 地址；定时任务会采集候选线索，但不会绕过 1688 供货验证直接上架。</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">

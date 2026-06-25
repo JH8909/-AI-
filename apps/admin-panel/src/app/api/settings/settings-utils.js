@@ -18,7 +18,10 @@ function settingsPatchFromBody(body) {
     llmBaseURL: body.llmBaseURL || "",
     supabaseUrl: body.supabaseUrl || "",
     supabaseKey: body.supabaseKey || "",
-    trendSourceUrls: body.trendSourceUrls || "",
+  }
+
+  if (typeof body.trendSourceUrls === "string") {
+    patch.trendSourceUrls = body.trendSourceUrls
   }
 
   if (typeof body.deepseekApiKey === "string" && body.deepseekApiKey.trim()) {

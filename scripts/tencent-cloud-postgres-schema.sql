@@ -246,6 +246,20 @@ CREATE TABLE IF NOT EXISTS trend_candidates (
 CREATE INDEX IF NOT EXISTS idx_trend_candidates_status ON trend_candidates(status);
 CREATE INDEX IF NOT EXISTS idx_trend_candidates_score ON trend_candidates(((score->>'total')::numeric) DESC) WHERE score IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS automation_runs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  trigger TEXT NOT NULL DEFAULT 'manual',
+  status TEXT NOT NULL CHECK (status IN ('running', 'succeeded', 'failed')),
+  options JSONB NOT NULL DEFAULT '{}',
+  result JSONB NOT NULL DEFAULT '{}',
+  error TEXT,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_automation_runs_started ON automation_runs(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_automation_runs_status ON automation_runs(status);
+
 CREATE OR REPLACE FUNCTION claim_crawl_job(worker_name TEXT)
 RETURNS SETOF crawl_jobs
 LANGUAGE plpgsql
