@@ -1,5 +1,6 @@
 import { promises as fs } from "fs"
 import { dataPath } from "@/lib/data-dir"
+import { randomUUID } from "crypto"
 
 const CACHE_FILE = ".products-cache.json"
 
@@ -39,7 +40,7 @@ export async function writeCachedProducts(items: any[]) {
 export async function createCachedProduct(body: any) {
   const product = {
     ...body,
-    id: String(Date.now()),
+    id: body.id || randomUUID(),
     risk_level: body.risk_level || "safe",
     status: body.status || "draft",
     images: Array.isArray(body.images) ? body.images : [],

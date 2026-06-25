@@ -1,35 +1,9 @@
 import { mockDrafts, apiResponse } from "@/lib/data/mock-data"
-import { dataPath } from "@/lib/data-dir"
 import { queryOne, queryRows } from "@/lib/postgres"
-import { promises as fs } from "fs"
 import { normalizePriceSuggestion } from "@/lib/content-drafts-utils"
+import { cacheReviewItem, createCachedContentDraft, readCachedContentDrafts } from "@/lib/content-drafts-cache"
 
-const CACHE_FILE = ".review-cache.json"
 const _drafts: any[] = []
-
-function createId() {
-  return crypto.randomUUID()
-}
-
-async function readReviewCache(): Promise<any[]> {
-  try {
-    return JSON.parse(await fs.readFile(await dataPath(CACHE_FILE), "utf-8"))
-  } catch {
-    return []
-  }
-}
-
-async function writeReviewCache(items: any[]) {
-  try {
-    await fs.writeFile(await dataPath(CACHE_FILE), JSON.stringify(items, null, 2), "utf-8")
-  } catch {}
-}
-
-async function cacheReviewItem(item: any) {
-  const cached = await readReviewCache()
-  cached.unshift(item)
-  await writeReviewCache(cached)
-}
 
 function normalizeTextList(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean)
@@ -77,7 +51,7 @@ export async function GET(req: Request) {
     return apiResponse(rows.map(mapDraft))
   } catch {}
 
-  let data = [..._drafts, ...mockDrafts]
+  let data = [..._drafts, ...(await readCachedContentDrafts()), ...mockDrafts]
   if (platform !== "all") data = data.filter((d) => d.platform === platform)
   return apiResponse(data)
 }
@@ -141,7 +115,6 @@ export async function POST(req: Request) {
       )
       if (!review) {
         await cacheReviewItem({
-          id: createId(),
           content_draft_id: draft.id,
           contentDraftId: draft.id,
           productName: body.productName || body.product_id,
@@ -170,8 +143,8 @@ export async function POST(req: Request) {
     created_at: new Date().toISOString(),
   }
   _drafts.unshift(draft)
+  await createCachedContentDraft(draft)
   await cacheReviewItem({
-    id: createId(),
     content_draft_id: draft.id,
     contentDraftId: draft.id,
     productName: body.productName || body.product_id,

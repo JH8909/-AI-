@@ -1,6 +1,8 @@
 import { buildPromotionProduct, createCandidate, listCandidates, scoreCandidate, verifyCandidateSupply, promoteCandidate } from "@/lib/trend-candidates-store"
 import { collectPublicTrendCandidates } from "@/lib/trend-source-collector"
 import { normalizeDbProduct, queryOne } from "@/lib/postgres"
+import { createCachedProduct } from "@/lib/product-cache"
+import { cacheReviewItem, createCachedContentDraft } from "@/lib/content-drafts-cache"
 
 export interface AutomationRunOptions {
   promoteThreshold?: number
@@ -127,6 +129,39 @@ async function createDraftForProduct(product: any, candidate: any) {
   return draft
 }
 
+async function createCachedDraftForProduct(product: any, candidate: any) {
+  const title = `${product.name}，适合先小规模测试的趋势单品`
+  const body = [
+    `最近看到 ${candidate.platform || "内容平台"} 上 ${product.name} 相关内容热度上升。`,
+    `适合场景：${candidate.contentScene || "日常使用"}`,
+    "建议先用小红书种草笔记测试点击和咨询，再决定是否扩大备货。",
+  ].join("\n")
+  const draft = await createCachedContentDraft({
+    product_id: product.id,
+    productName: product.name,
+    platform: "xiaohongshu",
+    content_type: "product_post",
+    title,
+    body,
+    hashtags: Array.isArray(product.tags) ? product.tags : [],
+    price_suggestion: product.price ?? null,
+    image_prompt: `${product.name} 场景化产品图，干净背景，突出使用场景`,
+    status: "pending",
+  })
+  await cacheReviewItem({
+    content_draft_id: draft.id,
+    contentDraftId: draft.id,
+    productName: product.name,
+    platform: "xiaohongshu",
+    title,
+    body,
+    status: "pending",
+    checklist: [],
+    created_at: draft.created_at,
+  })
+  return draft
+}
+
 export async function runAutomationPipeline(options: AutomationRunOptions = {}) {
   const promoteThreshold = options.promoteThreshold ?? 65
   const maxPromotions = options.maxPromotions ?? 2
@@ -177,7 +212,15 @@ export async function runAutomationPipeline(options: AutomationRunOptions = {}) 
         promoted.push({ candidate: updatedCandidate, product })
         drafted.push({ productId: product.id, draft })
       } catch (err: any) {
-        promoted.push({ candidateId: candidate.id, error: err.message || "promote failed" })
+        try {
+          const product = await createCachedProduct(buildPromotionProduct(candidate))
+          const draft = await createCachedDraftForProduct(product, candidate)
+          const updatedCandidate = await promoteCandidate(candidate.id)
+          promoted.push({ candidate: updatedCandidate, product, fallback: "local-cache" })
+          drafted.push({ productId: product.id, draft, fallback: "local-cache" })
+        } catch (fallbackErr: any) {
+          promoted.push({ candidateId: candidate.id, error: fallbackErr.message || err.message || "promote failed" })
+        }
       }
     }
   }
