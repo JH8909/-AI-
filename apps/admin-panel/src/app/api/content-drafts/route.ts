@@ -2,6 +2,7 @@ import { mockDrafts, apiResponse } from "@/lib/data/mock-data"
 import { dataPath } from "@/lib/data-dir"
 import { queryOne, queryRows } from "@/lib/postgres"
 import { promises as fs } from "fs"
+import { normalizePriceSuggestion } from "@/lib/content-drafts-utils"
 
 const CACHE_FILE = ".review-cache.json"
 const _drafts: any[] = []
@@ -50,7 +51,7 @@ function mapDraft(item: any) {
   return {
     ...item,
     productName: item.product_name || item.productName || item.product_id,
-    priceSuggestion: item.price_suggestion,
+    priceSuggestion: normalizePriceSuggestion(item.price_suggestion),
   }
 }
 
